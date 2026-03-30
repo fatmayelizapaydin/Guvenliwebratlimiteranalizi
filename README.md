@@ -1,41 +1,31 @@
-# Bilişim Güvenliği Vize Projesi: Rate Limiter (Hız Sınırlayıcı) Analizi
+# Bilişim Güvenliği Vize Ödevi: Rate Limiter Mekanizması ve Güvenlik Analizi
 
-Bu çalışma, web uygulama güvenliğinde hizmet sürekliliğini sağlamak ve kötü niyetli istekleri engellemek için kullanılan **Rate Limiting** mekanizmasını, ders müfredatındaki (Module 04) prensiplere göre analiz eder.
-
----
+Bu proje, "Module 04: What is Rate Limiter?" konusunu temel alarak hazırlanmıştır. Bir web sunucusuna gelen aşırı isteklerin nasıl sınırlandırıldığını ve bu sürecin güvenlik katmanlarını analiz eder.
 
 ## 📖 Konu Anlatımı: Rate Limiter Nedir?
-Rate Limiter, bir istemcinin (IP veya Kullanıcı) belirli bir zaman dilimi içerisinde sunucuya yapabileceği maksimum istek sayısını kontrol eden bir güvenlik katmanıdır. 
-* **Amacı:** Kaba kuvvet (Brute Force) saldırılarını yavaşlatmak ve sunucunun kaynaklarını tüketmeye yönelik DoS saldırılarını engellemektir.
-* **Seçilen Algoritma:** **Fixed Window (Sabit Pencere)**. Bu yöntemde zaman, sabit bloklara bölünür (Örneğin her 30 saniye) ve bu blok içindeki istekler sayılır.
+Rate Limiter, bir kullanıcının belirli bir süre içinde yapabileceği istek sayısını kısıtlayan bir "güvenlik kapısıdır". Sunucuyu kazaen veya kötü niyetli (DoS/Brute Force) aşırı yüklenmelerden korur. Bu analizde "Fixed Window" (Sabit Pencere) algoritması ele alınmıştır.
 
 ---
 
-## 🛠️ Ödev Analiz Aşamaları
+## 🛠️ Analiz Aşamaları
 
-### 1. Kurulum ve Kaynak Analizi (Reverse Engineering)
-Analiz edilen yapı, herhangi bir üçüncü taraf kütüphane bağımlılığı olmadan standart Node.js kütüphaneleriyle kurgulanmıştır.
-* **Güvenlik Kontrolü:** Yazılım, kurulum sırasında dışarıdan kontrolsüz paket çekmez (`npm install` gerektirmez). Bu, tedarik zinciri saldırılarına (Supply Chain Attacks) karşı koruma sağlar.
-* **Yetkilendirme:** Uygulama root yetkisi gerektirmeyen yüksek portlarda (3000) çalışacak şekilde izole edilmiştir.
+### Adım 1: Kurulum ve Kaynak Analizi (Reverse Engineering)
+Uygulama, Node.js mimarisi üzerinde dışarıdan paket bağımlılığı olmadan çalışmaktadır. Dışarıdan paket indirilmediği için "tedarik zinciri saldırılarına" karşı güvenlidir. Kurulum süreci root yetkisi gerektirmez.
 
-### 2. İzolasyon ve İz Bırakmadan Temizlik (Forensics & Cleanup)
-Sistem kaynaklarının temiz kullanımı ve güvenlik analizi (forensics) açısından uygulama şu özelliklere sahiptir:
-* **Bellek Yönetimi:** İstek sayıları kalıcı bir veritabanı yerine geçici bellekte (In-memory) tutulur.
-* **Cleanup:** Uygulama süreci sonlandırıldığında, bellekteki tüm kullanıcı takip verileri ve IP kayıtları silinir. Sistemde kalıcı hiçbir log veya dosya kalıntısı bırakmaz.
+### Adım 2: İzolasyon ve İz Bırakmadan Temizlik (Forensics & Cleanup)
+Uygulama verileri disk yerine bellekte (RAM) tutar. Süreç sonlandırıldığı anda tüm IP kayıtları ve sayaçlar silinir. Sistemde herhangi bir log veya dosya kalıntısı bırakmadığı için adli bilişim açısından temiz bir yapıya sahiptir.
 
-### 3. İş Akışları ve CI/CD Pipeline Analizi
-Projenin GitHub üzerindeki yaşam döngüsü otomatize edilmiştir:
-* **Pipeline Analizi:** GitHub Actions kullanılarak yapılan her kod değişikliğinde sistemin bütünlüğü test edilir.
-* **Webhook Rolü:** Kodda bir değişiklik algılandığında Webhook üzerinden tetiklenen süreç, güvenlik testlerini otomatik olarak başlatır.
+### Adım 3: İş Akışları ve CI/CD Pipeline Analizi
+GitHub Actions (.github/workflows) entegrasyonu sayesinde kod her güncellendiğinde otomatik testler çalışır. Webhook'lar aracılığıyla sunucunun güvenli durumu sürekli denetlenir.
 
-### 4. Docker Mimarisi ve Konteyner Güvenliği
-Uygulamanın Dockerize edilmesi, sistem izolasyonu için kritik bir adımdır:
-* **Konteyner Güvenliği:** Uygulama `node:alpine` imajı kullanılarak en küçük saldırı yüzeyine sahip olacak şekilde kurgulanmıştır.
-* **İzolasyon:** Konteyner, ana makine (host) işletim sisteminden kernel bazlı izole edilerek sunucu güvenliğini artırır.
+### Adım 4: Docker Mimarisi ve Konteyner Güvenliği
+Uygulama, güvenli bir taban olan `node:alpine` imajı ile izole edilir. Bu sayede uygulama ana makineden (Host) kernel seviyesinde ayrılır ve sadece belirlenen portlar üzerinden erişime izin verilir.
 
-### 5. Kaynak Kod ve Tehdit Modellemesi (Threat Modeling)
-Uygulamanın ana giriş noktası (entrypoint) `app.js` dosyasıdır.
-* **Analiz:** Uygulama, her istekte HTTP başlıklarına (X-RateLimit-Limit, Remaining) bilgi ekleyerek şeffaf bir güvenlik sağlar.
-* **Tehdit Senaryosu:** IP bazlı kısıtlama yapıldığı için saldırganlar "Distributed" (dağıtık) saldırılarla bu mekanizmayı aşmaya çalışabilir. Buna karşı gerçek senaryolarda "Token Bucket" gibi daha dinamik algoritmalar önerilir.
+### Adım 5: Kaynak Kod ve Tehdit Modellemesi (Threat Modeling)
+Uygulama, HTTP başlıkları (X-RateLimit-Limit, Remaining) üzerinden kullanıcıyı bilgilendirir. 
+* **Tehdit:** IP tabanlı kısıtlama, saldırganın IP değiştirmesi durumunda yetersiz kalabilir. 
+* **Çözüm:** Daha ileri seviye güvenlik için "Token Bucket" algoritması önerilir.
 
 ---
+**Hazırlayan:** [Adın Soyadın]
+**Üniversite:** İstinye Üniversitesi
