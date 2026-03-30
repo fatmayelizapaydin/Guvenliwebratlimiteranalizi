@@ -26,6 +26,3 @@ Uygulama, HTTP başlıkları (X-RateLimit-Limit, Remaining) üzerinden kullanıc
 * **Tehdit:** IP tabanlı kısıtlama, saldırganın IP değiştirmesi durumunda yetersiz kalabilir. 
 * **Çözüm:** Daha ileri seviye güvenlik için "Token Bucket" algoritması önerilir.
 
----
-**Hazırlayan:** [Adın Soyadın]
-**Üniversite:** İstinye Üniversitesi
