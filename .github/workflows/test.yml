@@ -1,0 +1,19 @@
+name: Security & Health Check
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: docker build -t rate-limiter-app .
+
+      - name: Test Server Response
+        run: |
+          docker run -d -p 3000:3000 --name test-container rate-limiter-app
+          sleep 5
+          # Sunucunun çalışıp çalışmadığını kontrol et
+          curl -I http://localhost:3000
